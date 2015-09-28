@@ -85,6 +85,7 @@ var HelloWorldLayer = cc.Layer.extend({
         );
         return true;
     }
+
 });
 
 var HelloWorldScene = cc.Scene.extend({

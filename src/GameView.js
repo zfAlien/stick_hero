@@ -2,7 +2,7 @@
  * Created by mq on 2015/9/23.
  */
 var obSize = {width:120,height:287};
-var limit={minWidth:50,maxWidth:140,between:40};
+var limit={minWidth:60,maxWidth:140,between:40};
 function playerSprite(){
     var self=this;
     this.sfCache=cc.spriteFrameCache;
@@ -71,16 +71,17 @@ var GameView=cc.Layer.extend({
         return true;
     },
     onTouchBegan:function(touch,event){
-        event.getCurrentTarget().changeHeight();
-        return true;
-    },
-    onTouchEnded:function(touch,event){
-        if(this._start){
-            event.getCurrentTarget().stopChangeHeight();
+        var self=event.getCurrentTarget();
+        if(self._start){
+            self.changeHeight();
             return true;
         }
 
         return false;
+    },
+    onTouchEnded:function(touch,event){
+        event.getCurrentTarget().stopChangeHeight();
+        return true;
     },
     ready:function(){
         var bg=new cc.Sprite(res.bg_0);
@@ -113,19 +114,45 @@ var GameView=cc.Layer.extend({
             onTouchEnded:self.onTouchEnded
         });
         cc.eventManager.addListener(listener,self);
-        //this.obstacles
+        this.obstacles.updateOB();
+        this.nextStep();
     },
     nextStep:function(){
+        //向后移动
+        var moveX=this.obstacles.thisOB.x-this.obstacles.getRealW(this.obstacles.thisOB)/2;
+        var moveBy=new cc.moveBy(moveX/500,cc.p(-moveX,0));
+        var moveByPS=new cc.moveBy(moveX/500,cc.p(-moveX+this.obstacles.getRealW(this.obstacles.thisOB)/2-this.ps.player.getContentSize().width/2,0));
+        var moveByStick=new cc.moveBy(moveX/500,cc.p(-moveX+this.obstacles.getRealW(this.obstacles.thisOB)/2-this.stick.getContentSize().width/2,0));
+        //移动猴子动作
+        var move_ps=new cc.CallFunc(function(){this.ps.player.runAction(moveByPS)},this);
+        //移动木棍动作
+        var move_stick=new cc.CallFunc(function(){this.stick.runAction(moveByStick)},this);
+        //建立一个同时执行的动作,移动障碍物的同时，添加移动木棍和猴子的动作
+        var spawn=new cc.Spawn(moveBy,move_ps,move_stick);
+        //移动结束后需要移除超出边界的上一个障碍物
+        this.obstacles.runAction(new cc.Sequence(spawn,new cc.CallFunc(function(){
+            if(this.obstacles.prevOB!=null){
+                this.obstacles.prevOB.removeFromParent(true);
+            }
 
+        },this)));
     },
     changeHeight:function(){
         this.schedule(this.updateDB,0.02);
     },
     stopChangeHeight:function(){
         this.unschedule(this.updateDB);
+        this.drawWalk();
     },
     updateDB:function(){
         this.stick.setScaleY(this.stick.getScaleY()+0.05);
+    },
+    drawWalk:function(){
+        this.stick.runAction(new cc.RotateTo(0.01,90));
+        cc.log(this.obstacles.thisOB.getX());
+        this.ps.player.runAction(new cc.MoveTo(1,new cc.p(this.obstacles.nextOB.x,this.ps.player.y)));
+        this.obstacles.updateOB();
+        this.nextStep();
     }
 
 });
@@ -141,7 +168,7 @@ var obstaclesLayer=cc.Layer.extend({
         this.nextOB.attr({
             x: cc.winSize.width/2,
             y:0,
-            scaleX:10,
+            scaleX:12,
             anchorY:0
         });
         this.addChild(this.nextOB);
@@ -161,13 +188,12 @@ var obstaclesLayer=cc.Layer.extend({
         //下个障碍物与原先障碍物的距离
         var between=(cc.winSize.width-this.getRealW(this.thisOB)-nextW)*Math.random();
         between=between<limit.between?limit.between:between;
-        //需要移动X轴距离
-        var moveX=this.thisOB.x-this.getRealW(this.thisOB)/2;
         this.nextOB=new cc.Sprite(res.stick);
         this.nextOB.attr({
-            x:between+this.getRealW(this.thisOB)+nextW/2,
+            x:between+this.getRealW(this.thisOB)+nextW/2+this.thisOB.x-this.getRealW(this.thisOB)/2,
             y:0,
-            anchorY:0
+            anchorY:0,
+            scaleX:nextW/this.getRealW(this.nextOB)
         });
         this.addChild(this.nextOB);
     }
