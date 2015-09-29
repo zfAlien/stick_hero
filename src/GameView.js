@@ -2,7 +2,7 @@
  * Created by mq on 2015/9/23.
  */
 var obSize = {width:120,height:287};
-var limit={minWidth:60,maxWidth:140,between:40};
+var limit={minWidth:70,maxWidth:140,between:40};
 function playerSprite(){
     var self=this;
     this.sfCache=cc.spriteFrameCache;
@@ -64,7 +64,7 @@ var GameView=cc.Layer.extend({
     obstacles:null,
     stick:null,
     ss:21,
-    _start:true,
+    _start:false,
     ctor:function(){
         this._super();
         this.ready();
@@ -74,6 +74,7 @@ var GameView=cc.Layer.extend({
         var self=event.getCurrentTarget();
         if(self._start){
             self.changeHeight();
+            self._start=false;
             return true;
         }
 
@@ -117,12 +118,17 @@ var GameView=cc.Layer.extend({
         this.obstacles.updateOB();
         this.nextStep();
     },
-    nextStep:function(){
+    nextStep:function(between){
+        var moveX;
         //向后移动
-        var moveX=this.obstacles.thisOB.x-this.obstacles.getRealW(this.obstacles.thisOB)/2;
+        if(this.obstacles.prevOB!=null){
+            moveX=between+this.obstacles.getRealW(this.obstacles.prevOB);
+        }else{
+            moveX=this.obstacles.thisOB.x-this.obstacles.getRealW(this.obstacles.thisOB)/2;
+        }
         var moveBy=new cc.moveBy(moveX/500,cc.p(-moveX,0));
-        var moveByPS=new cc.moveBy(moveX/500,cc.p(-moveX+this.obstacles.getRealW(this.obstacles.thisOB)/2-this.ps.player.getContentSize().width/2,0));
-        var moveByStick=new cc.moveBy(moveX/500,cc.p(-moveX+this.obstacles.getRealW(this.obstacles.thisOB)/2-this.stick.getContentSize().width/2,0));
+        var moveByPS=new cc.moveBy(moveX/500 ,cc.p(-moveX,0));
+        var moveByStick=new cc.moveBy(moveX/500,cc.p(-moveX,0));
         //移动猴子动作
         var move_ps=new cc.CallFunc(function(){this.ps.player.runAction(moveByPS)},this);
         //移动木棍动作
@@ -134,7 +140,16 @@ var GameView=cc.Layer.extend({
             if(this.obstacles.prevOB!=null){
                 this.obstacles.prevOB.removeFromParent(true);
             }
-
+            this.stick.removeFromParent(true);
+            this.stick=new cc.Sprite(res.stick);
+            this.stick.attr({
+                x:this.obstacles.getRealW(this.obstacles.thisOB)-this.stick.getContentSize().width/2,
+                y:obSize.height,
+                scaleY:0,
+                anchorY:0
+            });
+            this.addChild(this.stick);
+            this._start=true;
         },this)));
     },
     changeHeight:function(){
@@ -147,12 +162,25 @@ var GameView=cc.Layer.extend({
     updateDB:function(){
         this.stick.setScaleY(this.stick.getScaleY()+0.05);
     },
+    stickRealH:function(item){
+        return item.getScaleY()*item.getContentSize().height;
+    },
     drawWalk:function(){
         this.stick.runAction(new cc.RotateTo(0.01,90));
-        cc.log(this.obstacles.thisOB.getX());
-        this.ps.player.runAction(new cc.MoveTo(1,new cc.p(this.obstacles.nextOB.x,this.ps.player.y)));
-        this.obstacles.updateOB();
-        this.nextStep();
+        var between=this.obstacles.between;
+        //障碍物左边的位置
+        var left=between;
+        var right=between+this.obstacles.getRealW(this.obstacles.nextOB);
+        var height=this.stickRealH(this.stick);
+        if(height<left||height>right){
+
+        }else{
+            var moveX=between+this.obstacles.getRealW(this.obstacles.nextOB);
+            var move=new cc.MoveBy(moveX/500,new cc.p(moveX,0));
+            var seq=new cc.Sequence(move,new cc.CallFunc(function(){this.obstacles.updateOB();},this),new cc.CallFunc(function(){this.nextStep(between);},this));
+            this.ps.player.runAction(seq);
+        }
+
     }
 
 });
@@ -161,14 +189,15 @@ var GameView=cc.Layer.extend({
 var obstaclesLayer=cc.Layer.extend({
     thisOB:null,//当前障碍物
     prevOB:null,//前一个障碍物
-    nextOB:null,//下个障碍物
+    nextOB:null,//下个障碍物,
+    between:null,//下个障碍物间距
     ctor:function(){
         this._super();
         this.nextOB=new cc.Sprite(res.stick);
         this.nextOB.attr({
             x: cc.winSize.width/2,
             y:0,
-            scaleX:12,
+            scaleX:14,
             anchorY:0
         });
         this.addChild(this.nextOB);
@@ -186,11 +215,11 @@ var obstaclesLayer=cc.Layer.extend({
         var nextW=Math.random()*limit.maxWidth;
         nextW=nextW<limit.minWidth?limit.minWidth:nextW;
         //下个障碍物与原先障碍物的距离
-        var between=(cc.winSize.width-this.getRealW(this.thisOB)-nextW)*Math.random();
-        between=between<limit.between?limit.between:between;
+        this.between=(cc.winSize.width-this.getRealW(this.thisOB)-nextW)*Math.random();
+        this.between=this.between<limit.between?limit.between:this.between;
         this.nextOB=new cc.Sprite(res.stick);
         this.nextOB.attr({
-            x:between+this.getRealW(this.thisOB)+nextW/2+this.thisOB.x-this.getRealW(this.thisOB)/2,
+            x:this.between+nextW/2+this.thisOB.x+this.getRealW(this.thisOB)/2,
             y:0,
             anchorY:0,
             scaleX:nextW/this.getRealW(this.nextOB)
