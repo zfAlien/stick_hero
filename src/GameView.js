@@ -64,6 +64,8 @@ var GameView=cc.Layer.extend({
     obstacles:null,
     stick:null,
     ss:21,
+    menu:null,
+    score:null,
     _start:false,
     ctor:function(){
         this._super();
@@ -173,7 +175,20 @@ var GameView=cc.Layer.extend({
         var right=between+this.obstacles.getRealW(this.obstacles.nextOB);
         var height=this.stickRealH(this.stick);
         if(height<left||height>right){
-
+            var move=new cc.MoveBy(height/500,new cc.p(height,0));
+            var rotate=new cc.RotateTo(0.01,90);
+            var fallHeight=this.obstacles.thisOB.getContentSize().height+this.ps.player.getContentSize().width;
+            var fall=new cc.MoveBy(fallHeight/500,new cc.p(50,-fallHeight));
+            var spawn=new cc.Spawn(rotate,fall,new cc.CallFunc(function(){
+                var rotate=new cc.RotateTo(0.01,120);
+                var fallHeight=this.obstacles.thisOB.getContentSize().height+this.stick.getContentSize().width;
+                var fall=new cc.MoveBy(fallHeight/500,new cc.p(0,-fallHeight));
+                var spawn=new cc.Spawn(rotate,fall);
+                this.stick.runAction(spawn);
+            },this));
+            var seq=new cc.Sequence(move,spawn);
+            this.ps.player.runAction(seq);
+            //this.addChild(new GameOver());
         }else{
             var moveX=between+this.obstacles.getRealW(this.obstacles.nextOB);
             var move=new cc.MoveBy(moveX/500,new cc.p(moveX,0));

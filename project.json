@@ -13,7 +13,8 @@
     "jsList" : [
         "src/resource.js",
         "src/GameView.js",
-        "src/app.js"
+        "src/app.js",
+        "src/GameOver.js"
 
     ]
 }
